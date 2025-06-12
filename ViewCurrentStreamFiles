@@ -1,0 +1,28 @@
+#!.venv/bin/python3
+import urllib.parse
+import requests
+import argparse
+import re
+import time
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('url')
+
+args = parser.parse_args()
+
+try:
+    base_url = \
+    'https://sfs-msc-pub-lq-05.navigator.dot.ga.gov/rtplive/GDOT-CCTV-0'\
+    f'{500+int(args.url)}/'
+    url = base_url + 'playlist.m3u8'
+except:
+    url = args.url
+    base_url = urllib.parse(url, '.')
+
+chunklist_url = base_url +re.findall(r'chunklist.*?\.m3u8', requests.get(url).text)[-1]
+
+file_names = re.findall(r'media_w.*?\.ts', requests.get(chunklist_url).text)
+print(time.ctime())
+print(file_names)
+
