@@ -2,16 +2,20 @@
 
 from transformers import AutoImageProcessor, DetrForObjectDetection
 import torch
+from torchvision.utils import draw_bounding_boxes
+from torchvision.io import read_image
 from PIL import Image
 from argparse import ArgumentParser
+import matplotlib.pyplot as plot
 
 parser = ArgumentParser()
 parser.add_argument("image", nargs="?", help="file path of the image to be scanned")
 args = parser.parse_args()
 if args.image:
-    image = Image.open(args.image).convert("RGB")
+    file = args.image
 else:
-    image = Image.open("image.png").convert("RGB")
+    file = "image.png"
+image = Image.open(file).convert("RGB")
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
@@ -31,3 +35,13 @@ for score, label, box in zip(results["scores"], results["labels"], results["boxe
         f"Detected {model.config.id2label[label.item()]} with confidence "
         f"{round(score.item(), 3)} at location {box}"
     )
+
+image = read_image(file)
+image = (255.0 * (image - image.min()) / (image.max() - image.min())).to(torch.uint8)
+image = image[:3, ...]
+pred_boxes = results["boxes"].long()
+labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
+output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
+
+plot.imshow(output_image.permute(1, 2, 0))
+plot.show()
