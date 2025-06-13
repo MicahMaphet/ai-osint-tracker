@@ -1,0 +1,72 @@
+#!/home/john/dev/ai-osint-tracker/.venv/bin/python3
+from urllib.parse import urljoin
+import urllib.request
+import requests
+import re
+import urllib
+from pathlib import Path
+import subprocess
+import time
+import os
+from os import path
+import time
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument('-wait', help='time in second to wait between data fetching')
+args = parser.parse_args()
+
+try:
+    wait_time = float(args.wait)
+    print(f'waiting {wait_time} seconds between stream updating')
+except:
+    wait_time = 3
+# playlist file directing to all of the relevant media for the camera
+url = f'https://sfs-msc-pub-lq-05.navigator.dot.ga.gov/rtplive/GDOT-CCTV-0563/playlist.m3u8'
+num = urljoin(url, '.')[-3:-1] # camera number, in GDOT-CCTV-05##
+
+# url all the media content will be found in
+base_url = url[:url.rfind('/') + 1]
+
+# create the neccasary directories if they are not there
+Path(f'rawmedia/{num}/').mkdir(exist_ok=True, parents=True)
+Path(f'media/{num}/').mkdir(exist_ok=True, parents=True)
+
+while True:
+    # store all the current file ids to avoid repeats
+    file_ids = [f[f.rfind('_')+1:-3] for f in os.listdir(f'rawmedia/{num}') if path.isfile(path.join(f'rawmedia/{num}', f))]
+    # download the playlist file of that camera
+    playlist = requests.get(url).text
+    # download the chunklist file linked in the playlist file, the file name periodicaly changes
+    file_name = re.findall(r'chunklist_w.*?\.m3u8', playlist)
+    if (len(file_name) == 0):
+        continue
+    file_name = file_name[-1]
+    chunklist_url = base_url + file_name
+    chunklist = requests.get(chunklist_url).text
+    # download the media files listed in the chunklist file
+    media_files = re.findall(r'media_w.*?\.ts', chunklist)
+    media_concat = 'concat:'
+
+    # 
+    any_new_video = False
+    for media_file in reversed(media_files):
+        if media_file[media_file.rfind('_')+1:-3] not in file_ids:
+            any_new_video = True
+            continue
+    if not any_new_video:
+        print('no new video')
+    for media_file in media_files:
+        if not any_new_video:
+            break
+        if media_file[media_file.rfind('_')+1:-3] in file_ids:
+            continue
+        print(f'{time.ctime()}\ndownloading video clip: {media_file}')
+        urllib.request.urlretrieve(base_url + media_file, f'rawmedia/{num}/{media_file}')
+        # convert the media file to mp4 for viewing and simultaneously keeping track of data
+        subprocess.run(['ffmpeg', '-i', 
+                        f'rawmedia/{num}/{media_file}', 
+                        f'media/{num}/media{len(os.listdir(f'media/{num}'))}.mp4'],
+                        stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    # wait a little, no need to waste data periodically fetching data that update every 4 second
+    time.sleep(wait_time)
