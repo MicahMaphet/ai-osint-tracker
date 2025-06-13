@@ -14,6 +14,7 @@ from argparse import ArgumentParser
 
 parser = ArgumentParser()
 parser.add_argument('-wait', help='time in second to wait between data fetching')
+parser.add_argument('camera', help='camera id, 4 numbers after GDOT in url and video player on website')
 args = parser.parse_args()
 
 try:
@@ -22,8 +23,9 @@ try:
 except:
     wait_time = 3
 # playlist file directing to all of the relevant media for the camera
-url = f'https://sfs-msc-pub-lq-05.navigator.dot.ga.gov/rtplive/GDOT-CCTV-0563/playlist.m3u8'
-num = urljoin(url, '.')[-3:-1] # camera number, in GDOT-CCTV-05##
+
+num = args.camera # camera number, in GDOT-CCTV-0###
+url = f'https://sfs-msc-pub-lq-05.navigator.dot.ga.gov/rtplive/GDOT-CCTV-{num}/playlist.m3u8'
 
 # url all the media content will be found in
 base_url = url[:url.rfind('/') + 1]
@@ -55,13 +57,13 @@ while True:
             any_new_video = True
             continue
     if not any_new_video:
-        print('no new video')
+        print(f'no new video on camera {num} {time.ctime()}')
     for media_file in media_files:
         if not any_new_video:
             break
         if media_file[media_file.rfind('_')+1:-3] in file_ids:
             continue
-        print(f'{time.ctime()}\ndownloading video clip: {media_file}')
+        print(f'{time.ctime()}\ndownloading video clip: {media_file} from camera {num}')
         urllib.request.urlretrieve(base_url + media_file, f'rawmedia/{num}/{media_file}')
         # convert the media file to mp4 for viewing and simultaneously keeping track of data
         subprocess.run(['ffmpeg', '-i', 
