@@ -1,4 +1,4 @@
-#!/home/john/dev/ai-osint-tracker/.venv/bin/python3
+#!.venv/bin/python3
 from urllib.parse import urljoin
 import urllib.request
 import requests
