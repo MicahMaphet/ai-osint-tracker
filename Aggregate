@@ -5,16 +5,29 @@ import subprocess
 import shutil
 
 parser = ArgumentParser()
-parser.add_argument('number')
+parser.add_argument("number", type=str, help="id of the camera GDOT-####")
+parser.add_argument("output", type=str, nargs="?", help="output file")
+parser.add_argument("-clips", type=int, help="max numbers of clips to aggregate")
 args = parser.parse_args()
-concat = 'concat:'
 
-if os.path.exists('intermediate'):
-    shutil.rmtree('intermediate')
-os.mkdir('intermediate')
-for i in range(len(os.listdir(f'media/{args.number}'))):
-    concat += f'intermediate/{i}.ts|'
-    subprocess.run(['ffmpeg', '-i', f'media/{args.number}/media{i}.mp4', '-c', 'copy', f'intermediate/{i}.ts'])
+if args.clips:
+    aggregate_number = min(args.clips, len(os.listdir(f"media/{args.number}")))
+else:
+    aggregate_number = len(os.listdir(f"media/{args.number}"))
+
+if args.output:
+    output_file = args.output
+else:
+    output_file = "output.mp4"
+
+concat = "concat:"
+
+if os.path.exists("intermediate"):
+    shutil.rmtree("intermediate")
+os.mkdir("intermediate")
+for i in range(aggregate_number):
+    concat += f"intermediate/{i}.ts|"
+    subprocess.run(["ffmpeg", "-i", f"media/{args.number}/media{i}.mp4", "-c", "copy", f"intermediate/{i}.ts"])
 concat = concat[:-1]
 
-subprocess.run(['ffmpeg', '-i', concat, '-c', 'copy', 'output.mp4'])
+subprocess.run(["ffmpeg", "-i", concat, "-c", "copy", output_file])
