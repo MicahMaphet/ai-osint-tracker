@@ -14,7 +14,8 @@ import numpy as np
 import subprocess
 
 parser = ArgumentParser()
-parser.add_argument("video")
+parser.add_argument("video", type=str)
+parser.add_argument("-fps", type=float)
 args = parser.parse_args()
 
 video = args.video
@@ -24,6 +25,11 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 saved_frame_count = 0
+if args.fps:
+    interval = max(int(fps / args.fps), 0)
+else:
+    interval = 1
+print(interval)
 
 frames_output_folder = "trackedmedia/rawintermediate"
 Path(frames_output_folder).mkdir(exist_ok=True, parents=True)
@@ -32,7 +38,7 @@ for frame_id in tqdm(range(total_frames), desc="Unpacking video"):
     if not ret:
         break
 
-    if frame_id % 1 == 0:
+    if frame_id % interval == 0:
         frame_path = os.path.join(
             frames_output_folder, f"frame{saved_frame_count:04d}.png")
 
@@ -71,7 +77,7 @@ for i in tqdm(range(total_frames), desc="Scanning frames for cars"):
     pred_boxes = results["boxes"].long()
     labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
     output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
-    save_image(output_image / 255, f"{tracked_frames_folder}/frame{f'{10000 + i}'[1:]}.png")
+    save_image(output_image / 255, f"{tracked_frames_folder}/frame{i:04d}.png")
 
 intermediate_file = "intermediate.mp4"
 dims = Image.open(f'{frames_output_folder}/frame0000.png').size
@@ -79,7 +85,7 @@ if os.path.exists(intermediate_file):
     os.remove(intermediate_file)
 vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, dims)
 for i in tqdm(range(total_frames), desc="Assembly frames into video"):
-    frame = Image.open(f'{tracked_frames_folder}/frame{f'{10000 + i}'[1:]}.png')
+    frame = Image.open(f'{tracked_frames_folder}/frame{i:04d}.png')
     vidwriter.write(np.asarray(frame))
 vidwriter.release()
 
