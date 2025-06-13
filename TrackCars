@@ -7,7 +7,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from transformers import AutoImageProcessor, DetrForObjectDetection
 import torch
-from torchvision.io import read_image
+from torchvision.io import decode_image
 from torchvision.utils import draw_bounding_boxes, save_image
 from PIL import Image
 import numpy as np
@@ -18,79 +18,42 @@ parser.add_argument("video", type=str)
 parser.add_argument("-fps", type=float)
 args = parser.parse_args()
 
-video = args.video
-cap = cv2.VideoCapture(video)
-fps = cap.get(cv2.CAP_PROP_FPS)
-
-total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-saved_frame_count = 0
-if args.fps:
-    interval = max(int(fps / args.fps), 0)
-else:
-    interval = 1
-print(interval)
-
-frames_output_folder = "trackedmedia/rawintermediate"
-Path(frames_output_folder).mkdir(exist_ok=True, parents=True)
-for frame_id in tqdm(range(total_frames), desc="Unpacking video"):
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    if frame_id % interval == 0:
-        frame_path = os.path.join(
-            frames_output_folder, f"frame{saved_frame_count:04d}.png")
-
-        is_success, im_buf_arr = cv2.imencode(".jpg", frame)
-        im_buf_arr.tofile(frame_path)
-
-        saved_frame_count += 1
-cap.release()
-print(f"Extracted {saved_frame_count} frames")
-
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
+video = args.video
+vidreader = cv2.VideoCapture(video)
 
-frames = os.listdir(frames_output_folder)
-total_frames = len(frames)
+fps = vidreader.get(cv2.CAP_PROP_FPS)
+total_frames = int(vidreader.get(cv2.CAP_PROP_FRAME_COUNT))
+shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+intermediate_file = "__inter__.mp4"
 
-tracked_frames_folder = 'trackedmedia/intermediate/'
-Path(tracked_frames_folder).mkdir(exist_ok=True, parents=True)
-for i in tqdm(range(total_frames), desc="Scanning frames for cars"):
-    frame = f'{frames_output_folder}/frame{f'{i + 10000}'[1:]}.png'
+vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
 
-    image = Image.open(frame).convert("RGB")
+for i in tqdm(range(5), desc="Scanning video for objects and writing to new video"):
+    ret, frame = vidreader.read()
+    frame = torch.from_numpy(frame.transpose(2, 0, 1))
 
-    inputs = image_processor(images=image, return_tensors="pt")
+    inputs = image_processor(images=frame, return_tensors="pt")
     outputs = model(**inputs)
 
-    target_sizes = torch.tensor([image.size[::-1]])
+    target_sizes = torch.tensor([shape[::-1]])
     results = image_processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[
         0
     ]
 
-    image = read_image(frame)
-    image = (255.0 * (image - image.min()) / (image.max() - image.min())).to(torch.uint8)
-    image = image[:3, ...]
+    frame = (255.0 * (frame - frame.min()) / (frame.max() - frame.min())).to(torch.uint8)
+    frame = frame[:3, ...]
     pred_boxes = results["boxes"].long()
     labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
-    output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
-    save_image(output_image / 255, f"{tracked_frames_folder}/frame{i:04d}.png")
+    output_image = draw_bounding_boxes(frame, pred_boxes, labels, colors="red")
 
-intermediate_file = "intermediate.mp4"
-dims = Image.open(f'{frames_output_folder}/frame0000.png').size
-if os.path.exists(intermediate_file):
-    os.remove(intermediate_file)
-vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, dims)
-for i in tqdm(range(total_frames), desc="Assembly frames into video"):
-    frame = Image.open(f'{tracked_frames_folder}/frame{i:04d}.png')
-    vidwriter.write(np.asarray(frame))
+    vidwriter.write(output_image.cpu().numpy().transpose(1, 2, 0))
 vidwriter.release()
 
 if os.path.exists("trackedmedia.mp4"):
     os.remove("trackedmedia.mp4")
 # the media is corrupt in curtain file editors for whatever reason, running it through ffmpeg fixes this
 subprocess.run(["ffmpeg", "-i", intermediate_file, "trackedmedia.mp4"])
-os.remove(intermediate_file)
+os.remove("__inter__.mp4")
