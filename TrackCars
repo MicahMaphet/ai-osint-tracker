@@ -10,10 +10,12 @@ from torchvision.utils import draw_bounding_boxes
 from torchvision.io import decode_image
 from torchvision.utils import save_image
 import subprocess
+import matplotlib.pyplot as plot
 
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
 parser.add_argument("outputfile", type=str, nargs="?", help="output video/image file path")
+parser.add_argument("-plot", action="store_true", help="display image instead of saving (unless outputfile is set)")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
 
@@ -45,7 +47,13 @@ if input[-4:] != ".mp4":
     pred_boxes = results["boxes"].long()
     labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
     output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
-    save_image(output_image / 255, output_path)
+    if args.plot:
+        if args.outputfile:
+            save_image(output_image / 255, output_path)
+        plot.imshow(output_image.permute(1, 2, 0))
+        plot.show()
+    else:
+        save_image(output_image / 255, output_path)
     exit()
 
 if not args.outputfile:
