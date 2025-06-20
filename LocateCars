@@ -11,6 +11,7 @@ import math
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
 parser.add_argument("outputfile", type=str, nargs="?", help="output video/image file path")
+parser.add_argument("-H", type=str, help="homography matrix .npy file")
 parser.add_argument("-plot", action="store_true", help="display image instead of saving (unless outputfile is set)")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
@@ -18,22 +19,11 @@ args = parser.parse_args()
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
-srcPoints = np.array([
-    [55, 159],
-    [33, 137], 
-    [237, 106], 
-    [276, 118], 
-], dtype=np.float32)
-
-dstPoints = np.array([
-    [33.946079713152535, -84.62431858010372],
-    [33.946084163277476, -84.62441513963137], 
-    [33.94629610020873, -84.62441446907907], 
-    [33.94629554394452, -84.62432327396965], 
-], dtype=np.float32)
-
-# Compute homography matrix
-H, m = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC, 5.0)
+# load Homography matrix
+if args.H:
+    H = np.load(args.H)
+else:
+    H = np.load("H.npy")
 
 input = args.inputfile
 if args.outputfile:
