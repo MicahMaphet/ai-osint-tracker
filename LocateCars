@@ -2,6 +2,21 @@
 
 import cv2
 import numpy as np
+from tqdm import tqdm
+from argparse import ArgumentParser
+from transformers import AutoImageProcessor, DetrForObjectDetection
+import torch
+import math
+
+parser = ArgumentParser()
+parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
+parser.add_argument("outputfile", type=str, nargs="?", help="output video/image file path")
+parser.add_argument("-plot", action="store_true", help="display image instead of saving (unless outputfile is set)")
+parser.add_argument("-frames", type=int, help="max number of frames to scan")
+args = parser.parse_args()
+
+image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
 srcPoints = np.array([
     [55, 159],
@@ -9,6 +24,7 @@ srcPoints = np.array([
     [237, 106], 
     [276, 118], 
 ], dtype=np.float32)
+
 dstPoints = np.array([
     [33.946079713152535, -84.62431858010372],
     [33.946084163277476, -84.62441513963137], 
@@ -19,8 +35,52 @@ dstPoints = np.array([
 # Compute homography matrix
 H, m = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC, 5.0)
 
-src = [295, 100]
-dest = [(src[0] * H[0][0] + src[1] * H[0][1] + H[0][2])/(src[0] * H[2][0] + src[1] * H[2][1] + H[2][2]),
-        (src[0] * H[1][0] + src[1] * H[1][1] + H[1][2])/(src[0] * H[2][0] + src[1] * H[2][1] + H[2][2])]
+input = args.inputfile
+if args.outputfile:
+    output_path = args.outputfile
 
-print(dest[0], dest[1])
+if not args.outputfile:
+    output_path = "trackedmedia.mp4"
+
+vidreader = cv2.VideoCapture(input)
+
+fps = vidreader.get(cv2.CAP_PROP_FPS)
+frames = int(vidreader.get(cv2.CAP_PROP_FRAME_COUNT))
+if args.frames:
+    total_frames = min(frames, args.frames)
+shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+intermediate_file = "__inter__.mp4"
+
+geos = []
+# For every frame in the input video, load it, draw detection boxes from detr and save images to new video
+for i in tqdm(range(1), desc="Scanning video for objects and writing to new video"):
+    # load frame from input and process it for the detr
+    ret, image = vidreader.read()
+    frame = torch.from_numpy(image.transpose(2, 0, 1))
+    inputs = image_processor(images=frame, return_tensors="pt")
+
+    # scan processed images for objects
+    outputs = model(**inputs)
+
+    # process model outputs
+    target_sizes = torch.tensor([shape[::-1]])
+    results = image_processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[0]
+
+    frame = (255.0 * (frame - frame.min()) / (frame.max() - frame.min())).to(torch.uint8)
+    frame = frame[:3, ...]
+    pred_boxes = results["boxes"].long()
+    
+    geos.append([])
+    for box in pred_boxes:
+        print(box)
+        center = [(math.floor((box[0] + box[2]) / 2)), (math.floor((box[1] + box[3]) / 2))]
+        print(center)
+        dest = [float((center[0] * H[0][0] + center[1] * H[0][1] + H[0][2])/(center[0] * H[2][0] + center[1] * H[2][1] + H[2][2])),
+                float((center[0] * H[1][0] + center[1] * H[1][1] + H[1][2])/(center[0] * H[2][0] + center[1] * H[2][1] + H[2][2]))]
+        print(dest)
+        geos[i].append(dest)
+        cv2.circle(image, center=center, radius=3, color=(255, 0, 0), thickness=-1)
+
+    cv2.imwrite(f"f{i}.png", image)
+
+print(geos)
