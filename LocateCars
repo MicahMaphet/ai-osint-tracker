@@ -1,0 +1,26 @@
+#!.venv/bin/python3
+
+import cv2
+import numpy as np
+
+srcPoints = np.array([
+    [55, 159],
+    [33, 137], 
+    [237, 106], 
+    [276, 118], 
+], dtype=np.float32)
+dstPoints = np.array([
+    [33.946079713152535, -84.62431858010372],
+    [33.946084163277476, -84.62441513963137], 
+    [33.94629610020873, -84.62441446907907], 
+    [33.94629554394452, -84.62432327396965], 
+], dtype=np.float32)
+
+# Compute homography matrix
+H, m = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC, 5.0)
+
+src = [295, 100]
+dest = [(src[0] * H[0][0] + src[1] * H[0][1] + H[0][2])/(src[0] * H[2][0] + src[1] * H[2][1] + H[2][2]),
+        (src[0] * H[1][0] + src[1] * H[1][1] + H[1][2])/(src[0] * H[2][0] + src[1] * H[2][1] + H[2][2])]
+
+print(dest[0], dest[1])
