@@ -1,0 +1,35 @@
+#!.venv/bin/python3
+
+import numpy as np
+import cv2
+from transformers import AutoImageProcessor, DetrForObjectDetection
+import torch
+from torchvision.utils import draw_bounding_boxes
+
+image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
+model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
+
+vidreader = cv2.VideoCapture("media/COBB-CCTV-DallasHwy_BarrettPkwy-0860-W/media0.mp4")
+ret, frame = vidreader.read()
+image = torch.from_numpy(frame.transpose(2, 0, 1))
+
+inputs = image_processor(images=image, return_tensors="pt")
+
+# scan processed image for objects
+outputs = model(**inputs)
+
+# process model outputs
+target_sizes = torch.tensor([[image.shape[1], image.shape[2]]])
+results = image_processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[0]
+
+image = (255.0 * (image - image.min()) / (image.max() - image.min())).to(torch.uint8)
+image = image[:3, ...]
+pred_boxes = results["boxes"].long()
+labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
+output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
+
+output_image = output_image.cpu().numpy().transpose(1, 2, 0)
+mask = cv2.inRange(output_image, np.asarray([254, 0, 0]), np.asarray([255, 0, 0]))
+output = cv2.bitwise_and(output_image, output_image, mask=mask)
+
+cv2.imwrite("loc.png", output)
