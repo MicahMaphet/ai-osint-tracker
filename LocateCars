@@ -2,53 +2,57 @@
 
 import numpy as np
 import cv2
-from transformers import AutoImageProcessor, DetrForObjectDetection
-import torch
-from torchvision.utils import draw_bounding_boxes
+import os
+import subprocess
+from tqdm import tqdm
+from argparse import ArgumentParser
 
-image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
-model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
+parser = ArgumentParser()
+parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
+parser.add_argument("outputfile", type=str, nargs="?", help="output video/image file path")
+args = parser.parse_args()
 
-vidreader = cv2.VideoCapture("media/COBB-CCTV-DallasHwy_BarrettPkwy-0860-W/media0.mp4")
-ret, frame = vidreader.read()
-image = torch.from_numpy(frame.transpose(2, 0, 1))
+input = args.inputfile
 
-inputs = image_processor(images=image, return_tensors="pt")
+if args.outputfile:
+    output_path = args.outputfile
+else:
+    output_path = "map-view.mp4"
 
-# scan processed image for objects
-outputs = model(**inputs)
+vidreader = cv2.VideoCapture(input)
+frames = int(vidreader.get(cv2.CAP_PROP_FRAME_COUNT))
+fps = vidreader.get(cv2.CAP_PROP_FPS)
 
-# process model outputs
-target_sizes = torch.tensor([[image.shape[1], image.shape[2]]])
-results = image_processor.post_process_object_detection(outputs, threshold=0.9, target_sizes=target_sizes)[0]
+intermediate_file = "__inter__.mp4"
+vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, (1600, 2950))
 
-image = (255.0 * (image - image.min()) / (image.max() - image.min())).to(torch.uint8)
-image = image[:3, ...]
-pred_boxes = results["boxes"].long()
-labels = [f"{model.config.id2label[label.item()]}: {score} " for label, score in zip(results["labels"], results["scores"])]
-output_image = draw_bounding_boxes(image, pred_boxes, labels, colors="red")
+for i in tqdm(range(frames), desc="Transforming footage to map view"):
+    ret, frame = vidreader.read()
 
-output_image = output_image.cpu().numpy().transpose(1, 2, 0)
-# Points mapping to each other from camera to maps view
-srcPoints = np.array([
-    [55, 159],
-    [33, 137], 
-    [237, 106], 
-    [276, 118], 
-], dtype=np.float32)
-dstPoints = np.array([
-    [709, 257],
-    [698, 91], 
-    [256, 94], 
-    [256, 246], 
-], dtype=np.float32)
+    x=700
+    y=2000
+    # Points mapping to each other from camera to maps view
+    srcPoints = np.array([
+        [55, 159],
+        [33, 137], 
+        [237, 106], 
+        [276, 118], 
+    ], dtype=np.float32)
+    dstPoints = np.array([
+        [709 + x, 257 + y],
+        [698 + x, 91 + y], 
+        [256 + x, 94 + y], 
+        [256 + x, 246 + y], 
+    ], dtype=np.float32)
 
-# Compute homography matrix
-H, m = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC, 5.0)
+    # Compute homography matrix
+    H, m = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC, 5.0)
 
-map_img = cv2.imread("Xmap.png")
-height, width, _ = map_img.shape
+    aligned = cv2.warpPerspective(frame, H, (1600, 2950))
+    vidwriter.write(aligned)
+vidwriter.release()
 
-mask_aligned = cv2.warpPerspective(frame, H, (width, height))
-cv2.imwrite("lo3.png", output_image)
-cv2.imwrite("lo2.png", cv2.warpPerspective(cv2.imread("lo3.png"), H, (width, height)))
+if os.path.exists(output_path):
+    os.remove(output_path)
+subprocess.run(["ffmpeg", "-i", intermediate_file, output_path])
+os.remove(intermediate_file)
