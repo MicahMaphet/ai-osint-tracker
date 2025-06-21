@@ -13,8 +13,7 @@ import pickle
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
 parser.add_argument("outputfile", type=str, nargs="?", help="output video file path")
-parser.add_argument("-H", type=str, help="homography matrix .npy file")
-parser.add_argument("-plot", action="store_true", help="display image instead of saving (unless outputfile is set)")
+parser.add_argument("-H", type=str, help="homography matrix .pickle file")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
 
@@ -23,9 +22,11 @@ model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
 # load Homography matrix
 if args.H:
-    H = np.load(args.H)
+    with open(args.H, "rb") as f:
+        H = pickle.load(f)
 else:
-    H = np.load("H.npy")
+    with open("H.pickle", "rb") as f:
+        H = pickle.load(f)
 
 input = args.inputfile
 
@@ -43,6 +44,8 @@ input = args.inputfile
 
 if args.outputfile:
     output_path = args.outputfile
+else:
+    output_path = "watchcars.mp4"
 
 geos = []
 # For every frame in the input video, load it, draw detection boxes from detr and save images to new video
