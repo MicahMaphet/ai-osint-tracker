@@ -4,17 +4,25 @@ import cv2
 import pickle
 import subprocess
 import os
+from argparse import ArgumentParser
 
-map_img = cv2.imread("map.png")
+parser = ArgumentParser()
+parser.add_argument("map", type=str, help="Image file to overlay car locations")
+parser.add_argument("output", type=str, help="mp4 output file")
+parser.add_argument("geocoordanites", type=str, help="Geocoordanites of all cars on each frame .pickle file")
+parser.add_argument("H", type=str, help="Homography 3x3 matrix converting geocoorinates to map image pixel locations .pickle file")
+args = parser.parse_args()
+
+map_img = cv2.imread(args.map)
 height, width, _ = map_img.shape
 
-output_path = "watch.mp4"
+output_path = args.output
 intermediate_file = "__inter__.mp4"
 vidwriter = cv2.VideoWriter(intermediate_file, fps=15, fourcc=cv2.VideoWriter_fourcc(*"mp4v"), frameSize=(width, height))
 
-with open('geos.pickle', 'rb') as f:
+with open(args.geocoordanites, "rb") as f:
     geos = pickle.load(f)
-with open('Hgeo-map.pickle', 'rb') as f:
+with open(args.H, "rb") as f:
     H = pickle.load(f)
 
 for geoList in geos:
