@@ -99,4 +99,4 @@ if os.path.exists(output_path):
     os.remove(output_path)
 # the media is corrupt in curtain file editors for whatever reason, running it through ffmpeg fixes this
 subprocess.run(["ffmpeg", "-i", intermediate_file, output_path])
-os.remove("__inter__.mp4")
+os.remove(intermediate_file)
