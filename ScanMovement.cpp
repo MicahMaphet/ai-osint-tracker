@@ -5,7 +5,10 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char** args) {
-    VideoCapture vidReader("rawusing.mp4");
+    string inputFile = argc > 1 ? args[1] : "input.mp4";
+    string outputFile = argc > 2 ? args[2] : "output.mp4";
+
+    VideoCapture vidReader(inputFile);
 
     // Check if video is imported successfully
     if (vidReader.isOpened() == false) {
@@ -21,8 +24,7 @@ int main(int argc, char** args) {
     double dHeight = vidReader.get(CAP_PROP_FRAME_HEIGHT);
     Size frameSize(dWidth, dHeight);
 
-    VideoWriter vidWriter("output.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, frameSize, true);
-
+    VideoWriter vidWriter(outputFile, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, frameSize, true);
 
     Mat prevFrame;
     Mat frame;
