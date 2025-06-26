@@ -34,12 +34,13 @@ int main(int argc, char** args) {
             for (int x=0; x<frame.cols;x++) {
                 Vec3b& pixel = frame.at<Vec3b>(y, x);
                 Vec3b& prevPixel = prevFrame.at<Vec3b>(y, x);
-                if (abs(pixel[0] + pixel[1] + pixel[2] - (prevPixel[0] + prevPixel[1] + prevPixel[2])) < 1) {
-                    pixel[0] = 0;
-                    pixel[1] = 0;
-                    pixel[2] = 0;
+                if (abs(pixel[0] + pixel[1] + pixel[2] - (prevPixel[0] + prevPixel[1] + prevPixel[2])) < 10) {
+                    prevPixel = pixel;
+                } else {
+                    prevPixel = pixel;
+                    pixel[0] = pixel[1] = 0;
+                    pixel[2] = 255;
                 }
-
             }
         }
         vidWriter.write(frame);
