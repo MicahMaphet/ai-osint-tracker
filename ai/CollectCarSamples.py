@@ -27,7 +27,8 @@ frames = int(vidreader.get(cv2.CAP_PROP_FRAME_COUNT))
 if args.frames:
     frames = min(frames, args.frames)
 shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-data_dir = "train/cars/"
+car_dir = "train/cars/"
+nocar_dir = "train/nocars/"
 
 for i in tqdm(range(frames), desc="Scanning video for objects and writing to new video"):
     ret, frame = vidreader.read()
@@ -43,5 +44,8 @@ for i in tqdm(range(frames), desc="Scanning video for objects and writing to new
     pred_boxes = results["boxes"].long()
     for box, label in zip(pred_boxes, labels):
         if label in ["car", "truck"]:
-            cv2.imwrite(f"{data_dir}image{len(os.listdir(data_dir))}.png", frame[box[1]:box[3], box[0]:box[2]])    
+            cv2.imwrite(f"{car_dir}image{len(os.listdir(car_dir))}.png", frame[box[1]:box[3], box[0]:box[2]])    
+        else:
+            cv2.imwrite(f"{nocar_dir}image{len(os.listdir(nocar_dir))}.png", frame[box[1]:box[3], box[0]:box[2]])    
+
 
