@@ -9,13 +9,12 @@ import torch
 import os
 import subprocess
 import pickle
-import json
 
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
 parser.add_argument("outputvid", type=str, nargs="?", help="output mp4 video file path")
 parser.add_argument("outputgeos", type=str, nargs="?", help="output geo coordanites .pickle file")
-parser.add_argument("-H", type=str, help="homography matrix .pickle file")
+parser.add_argument("H", type=str, help="homography matrix .pickle file")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
 
@@ -23,12 +22,8 @@ image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
 # load Homography matrix
-if args.H:
-    with open(args.H, "rb") as f:
-        H = pickle.load(f)
-else:
-    with open("H.pickle", "rb") as f:
-        H = pickle.load(f)
+with open(args.H, "rb") as f:
+    H = pickle.load(f)
 
 input = args.inputfile
 
@@ -41,7 +36,7 @@ if args.frames:
 shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 intermediate_file = "__inter__.mp4"
 
-vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"avc1"), fps, shape)
+vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
 input = args.inputfile
 
 if args.outputvid:
