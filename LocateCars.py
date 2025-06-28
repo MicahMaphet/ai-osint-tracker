@@ -8,13 +8,13 @@ from transformers import AutoImageProcessor, DetrForObjectDetection
 import torch
 import os
 import subprocess
-import pickle
+import json
 
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
 parser.add_argument("outputvid", type=str, nargs="?", help="output mp4 video file path")
-parser.add_argument("outputgeos", type=str, nargs="?", help="output geo coordanites .pickle file")
-parser.add_argument("H", type=str, help="homography matrix .pickle file")
+parser.add_argument("outputgeos", type=str, nargs="?", help="output geo coordanites .json file")
+parser.add_argument("H", type=str, help="homography matrix .json file")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
 
@@ -23,7 +23,7 @@ model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50")
 
 # load Homography matrix
 with open(args.H, "rb") as f:
-    H = pickle.load(f)
+    H = json.load(f)
 
 input = args.inputfile
 
@@ -47,7 +47,7 @@ else:
 if args.outputgeos:
     output_geos = args.outputgeos
 else:
-    output_geos = "geos.pickle"
+    output_geos = "geos.json"
 
 geos = []
 # For every frame in the input video, load it, draw detection boxes from detr and save images to new video
@@ -76,8 +76,8 @@ for i in tqdm(range(frames), desc="Scanning video for objects and writing to new
         cv2.circle(image, center=center, radius=2, color=(255, 0, 0), thickness=-1)
     vidwriter.write(image)
 vidwriter.release()
-with open(output_geos, "wb") as handle:
-    pickle.dump(geos, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open(output_geos, "w") as f:
+    json.dump(geos, f)
 # delete targed video if it exists, don't want any errors
 if os.path.exists(output_path):
     os.remove(output_path)

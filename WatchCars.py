@@ -1,7 +1,7 @@
 #!.venv/bin/python3
 
 import cv2
-import pickle
+import json
 import subprocess
 import os
 from argparse import ArgumentParser
@@ -9,8 +9,8 @@ from argparse import ArgumentParser
 parser = ArgumentParser()
 parser.add_argument("map", type=str, help="Image file to overlay car locations")
 parser.add_argument("output", type=str, help="mp4 output file")
-parser.add_argument("geocoordanites", type=str, help="Geocoordanites of all cars on each frame .pickle file")
-parser.add_argument("H", type=str, help="Homography 3x3 matrix converting geocoorinates to map image pixel locations .pickle file")
+parser.add_argument("geocoordanites", type=str, help="Geocoordanites of all cars on each frame .json file")
+parser.add_argument("H", type=str, help="Homography 3x3 matrix converting geocoorinates to map image pixel locations .json file")
 parser.add_argument("-show_geos", action="store_true", help="Show geocoordanites of cars")
 args = parser.parse_args()
 
@@ -21,10 +21,10 @@ output_path = args.output
 intermediate_file = "__inter__.mp4"
 vidwriter = cv2.VideoWriter(intermediate_file, fps=15, fourcc=cv2.VideoWriter_fourcc(*"mp4v"), frameSize=(width, height))
 
-with open(args.geocoordanites, "rb") as f:
-    geos = pickle.load(f)
-with open(args.H, "rb") as f:
-    H = pickle.load(f)
+with open(args.geocoordanites, "r") as f:
+    geos = json.load(f)
+with open(args.H, "r") as f:
+    H = json.load(f)
 
 for geoList in geos:
     img = map_img.copy()
