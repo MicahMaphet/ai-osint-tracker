@@ -41,7 +41,7 @@ if args.frames:
 shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 intermediate_file = "__inter__.mp4"
 
-vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
+vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"avc1"), fps, shape)
 input = args.inputfile
 
 if args.outputvid:

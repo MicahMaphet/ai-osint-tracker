@@ -9,7 +9,6 @@ import torch
 from torchvision.utils import draw_bounding_boxes
 from torchvision.io import decode_image
 from torchvision.utils import save_image
-import subprocess
 import matplotlib.pyplot as plot
 
 parser = ArgumentParser()
@@ -58,6 +57,8 @@ if input[-4:] != ".mp4":
 
 if not args.outputfile:
     output_path = "trackedmedia.mp4"
+if os.path.exists(output_path):
+    os.remove(output_path)
 
 vidreader = cv2.VideoCapture(input)
 
@@ -66,9 +67,8 @@ total_frames = int(vidreader.get(cv2.CAP_PROP_FRAME_COUNT))
 if args.frames:
     total_frames = min(total_frames, args.frames)
 shape = (int(vidreader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(vidreader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-intermediate_file = "__inter__.mp4"
 
-vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
+vidwriter = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
 
 # For every frame in the input video, load it, draw detection boxes from detr and save images to new video
 for i in tqdm(range(total_frames), desc="Scanning video for objects and writing to new video"):
@@ -93,10 +93,3 @@ for i in tqdm(range(total_frames), desc="Scanning video for objects and writing 
     # write the decoded frame to the new video
     vidwriter.write(output_image.cpu().numpy().transpose(1, 2, 0))
 vidwriter.release()
-
-# delete targed video if it exists, don't want any errors
-if os.path.exists(output_path):
-    os.remove(output_path)
-# the media is corrupt in curtain file editors for whatever reason, running it through ffmpeg fixes this
-subprocess.run(["ffmpeg", "-i", intermediate_file, output_path])
-os.remove(intermediate_file)
