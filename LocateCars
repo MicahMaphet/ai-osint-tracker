@@ -9,10 +9,12 @@ import torch
 import os
 import subprocess
 import pickle
+import json
 
 parser = ArgumentParser()
 parser.add_argument("inputfile", type=str, help="input video mp4 or image file path to scan")
-parser.add_argument("outputfile", type=str, nargs="?", help="output video file path")
+parser.add_argument("outputvid", type=str, nargs="?", help="output mp4 video file path")
+parser.add_argument("outputgeos", type=str, nargs="?", help="output geo coordanites .pickle file")
 parser.add_argument("-H", type=str, help="homography matrix .pickle file")
 parser.add_argument("-frames", type=int, help="max number of frames to scan")
 args = parser.parse_args()
@@ -42,10 +44,15 @@ intermediate_file = "__inter__.mp4"
 vidwriter = cv2.VideoWriter(intermediate_file, cv2.VideoWriter_fourcc(*"mp4v"), fps, shape)
 input = args.inputfile
 
-if args.outputfile:
-    output_path = args.outputfile
+if args.outputvid:
+    output_path = args.outputvid
 else:
     output_path = "watchcars.mp4"
+
+if args.outputgeos:
+    output_geos = args.outputgeos
+else:
+    output_geos = "geos.pickle"
 
 geos = []
 # For every frame in the input video, load it, draw detection boxes from detr and save images to new video
@@ -74,7 +81,7 @@ for i in tqdm(range(frames), desc="Scanning video for objects and writing to new
         cv2.circle(image, center=center, radius=2, color=(255, 0, 0), thickness=-1)
     vidwriter.write(image)
 vidwriter.release()
-with open('geos.pickle', 'wb') as handle:
+with open(output_geos, "wb") as handle:
     pickle.dump(geos, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # delete targed video if it exists, don't want any errors
 if os.path.exists(output_path):
