@@ -5,7 +5,9 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char** args) {
-    string inputFile = argc > 1 ? args[1] : "input.mp4";
+    if (argc == 1)
+        throw std::invalid_argument("No input mp4 file given");
+    string inputFile = args[1];
     string outputFile = argc > 2 ? args[2] : "output.mp4";
 
     VideoCapture vidReader(inputFile);
@@ -30,7 +32,7 @@ int main(int argc, char** args) {
     Mat frame;
         
     vidReader.read(prevFrame);
-    for (int i=0; i<frames; i++) {
+    for (int i=0; i<frames-1; i++) {
         vidReader.read(frame);
         for (int y=0; y<frame.rows;y++) {
             for (int x=0; x<frame.cols;x++) {
